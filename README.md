@@ -1,5 +1,7 @@
 # Ladle
 
+[![CI](https://github.com/githintz/Recipe-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/githintz/Recipe-tracker/actions/workflows/ci.yml)
+
 Save recipes from Instagram, TikTok, YouTube and any website, and read them back
 in a format you can actually cook from — no ads, no autoplay video, no three
 pages of preamble before the ingredients.
@@ -62,6 +64,31 @@ To load a few recipes so the app isn't empty on first run:
 ```bash
 npx tsx scripts/seed.mjs
 ```
+
+## Checks
+
+```bash
+npm run verify     # typecheck, lint, build, smoke
+```
+
+Or individually:
+
+| Command | What it does |
+|---|---|
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint (flat config) |
+| `npm run build` | Production build |
+| `npm run smoke` | Boots the built app and exercises it |
+
+`npm run smoke` is the one that matters. It starts the built server against a
+throwaway database — never your real one — and checks that every page renders,
+the import parser reads a caption into structured fields, recipes round-trip
+through the API, folders file correctly, and the grocery list merges duplicate
+lines instead of stacking them. It runs with no API key, so the offline parsers
+have to carry it and CI never makes a paid call.
+
+GitHub Actions runs all four on every push and pull request, against Node 20
+and 22.
 
 ## The import pipeline
 
