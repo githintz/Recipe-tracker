@@ -8,6 +8,7 @@ import { Avatar } from "./Avatar";
 import { formatMinutesPlain } from "@/lib/format";
 import { renderIngredient, isConvertible, UNIT_SYSTEM_LABEL, type UnitSystem } from "@/lib/units";
 import { recipeToPlainText } from "@/lib/serialize";
+import { addRecipeToGroceryList, deleteRecipe, updateRecipe } from "@/lib/store";
 
 const SCALES = [0.5, 1, 1.5, 2, 3, 4];
 
@@ -40,25 +41,16 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
   async function toggleFavorite() {
     const next = !favorite;
     setFavorite(next);
-    await fetch(`/api/recipes/${recipe.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ favorite: next }),
-    });
+    await updateRecipe(recipe.id, { favorite: next });
     router.refresh();
   }
 
   async function addToList() {
-    const response = await fetch(`/api/recipes/${recipe.id}/grocery`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ factor }),
-    });
-    const data = (await response.json()) as { added?: number; merged?: number };
+    const result = await addRecipeToGroceryList(recipe, factor);
     flash(
-      data.merged
-        ? `Added ${data.added} · merged ${data.merged} into what was there`
-        : `Added ${data.added ?? 0} items to your list`,
+      result.merged
+        ? `Added ${result.added} · merged ${result.merged} into what was there`
+        : `Added ${result.added} items to your list`,
     );
     setMenuOpen(false);
   }
@@ -85,7 +77,7 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 
   async function remove() {
     if (!confirm(`Delete “${recipe.title}”? This can't be undone.`)) return;
-    await fetch(`/api/recipes/${recipe.id}`, { method: "DELETE" });
+    await deleteRecipe(recipe.id);
     router.push("/");
     router.refresh();
   }
@@ -146,7 +138,7 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
                   <MenuItem onClick={addToList}>Add to grocery list</MenuItem>
                   <MenuItem onClick={share}>Share / copy</MenuItem>
                   <MenuItem onClick={() => window.print()}>Print</MenuItem>
-                  <MenuLink href={`/recipes/${recipe.id}/edit`}>Edit recipe</MenuLink>
+                  <MenuLink href={`/edit/?id=${recipe.id}`}>Edit recipe</MenuLink>
                   {recipe.sourceUrl && (
                     <MenuLink href={recipe.sourceUrl} external>
                       Open original
@@ -319,7 +311,7 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
       {/* Cook mode */}
       {recipe.steps.length > 0 && (
         <Link
-          href={`/recipes/${recipe.id}/cook`}
+          href={`/cook/?id=${recipe.id}`}
           className="no-print pressable fixed inset-x-4 bottom-24 z-30 mx-auto flex max-w-md items-center justify-center gap-2 rounded-full bg-accent px-6 py-4 font-bold text-white shadow-float"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

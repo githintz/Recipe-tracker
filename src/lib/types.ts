@@ -107,3 +107,21 @@ export type ExtractedRecipe = Omit<
   /** Non-fatal notes about what the extractor could and couldn't find. */
   warnings: string[];
 };
+
+/**
+ * What `createRecipe` needs: everything a recipe has except the fields the
+ * store assigns itself. Both a freshly extracted draft and an existing recipe
+ * satisfy it, so the editor can save either one.
+ */
+export type RecipeDraft = Omit<
+  Recipe,
+  "id" | "createdAt" | "updatedAt" | "favorite"
+>;
+
+export type RecipeQuery = {
+  search?: string;
+  folderId?: string;
+  tag?: string;
+  favoritesOnly?: boolean;
+  sort?: "recent" | "title" | "time";
+};

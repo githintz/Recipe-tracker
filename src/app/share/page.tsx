@@ -1,35 +1,30 @@
-import { redirect } from "next/navigation";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Spinner } from "@/components/Spinner";
+import { routeForShared } from "@/lib/share";
 
-type SearchParams = Promise<{ title?: string; text?: string; url?: string }>;
+function ShareHandler() {
+  const router = useRouter();
+  const params = useSearchParams();
 
-/**
- * Where the OS share sheet lands. Android hands the shared link over in
- * whichever field it feels like — sometimes `url`, often `text` with the link
- * buried in it — so we dig the link out and hand the import screen either a
- * URL or the raw text to parse.
- */
-export default async function SharePage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const { text = "", url = "" } = await searchParams;
+  useEffect(() => {
+    router.replace(
+      routeForShared({ text: params.get("text"), url: params.get("url") }),
+    );
+  }, [router, params]);
 
-  const shared = url.trim() || findLink(text) || "";
-  if (shared) redirect(`/import?url=${encodeURIComponent(shared)}`);
-
-  if (text.trim()) {
-    redirect(`/import?mode=text&text=${encodeURIComponent(text.trim().slice(0, 4000))}`);
-  }
-
-  redirect("/import");
+  return <Spinner label="Opening what you shared…" />;
 }
 
-function findLink(text: string): string | null {
-  const match = text.match(/https?:\/\/[^\s]+/i);
-  if (!match) return null;
-  // Strip trailing punctuation a share sheet may have carried along.
-  return match[0].replace(/[),.]+$/, "");
+/** Where the browser's share target lands when the app is installed as a PWA. */
+export default function SharePage() {
+  return (
+    <main>
+      <Suspense fallback={<Spinner />}>
+        <ShareHandler />
+      </Suspense>
+    </main>
+  );
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Folder } from "@/lib/types";
+import { createFolder } from "@/lib/store";
 import { EmptyState } from "./EmptyState";
 
 const EMOJI = ["📁", "🍝", "🥗", "🍰", "🌮", "🍜", "🥘", "🍳", "🥖", "🍲", "🥩", "🍛"];
@@ -11,11 +11,13 @@ const EMOJI = ["📁", "🍝", "🥗", "🍰", "🌮", "🍜", "🥘", "🍳", "
 export function FolderBoard({
   folders,
   covers,
+  onChanged,
 }: {
   folders: Folder[];
   covers: Record<string, string | null>;
+  /** Re-reads the folder list after a change, so the board stays in step. */
+  onChanged: () => void | Promise<void>;
 }) {
-  const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState(EMOJI[0]);
@@ -24,16 +26,12 @@ export function FolderBoard({
   async function create() {
     if (!name.trim()) return;
     setBusy(true);
-    await fetch("/api/folders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, emoji }),
-    });
+    await createFolder(name, emoji);
     setName("");
     setEmoji(EMOJI[0]);
     setCreating(false);
     setBusy(false);
-    router.refresh();
+    await onChanged();
   }
 
   return (
@@ -62,7 +60,7 @@ export function FolderBoard({
       ) : (
         <div className="grid grid-cols-2 gap-x-3 gap-y-5">
           {folders.map((folder) => (
-            <Link key={folder.id} href={`/folders/${folder.id}`} className="pressable block">
+            <Link key={folder.id} href={`/folder/?id=${folder.id}`} className="pressable block">
               <div className="aspect-square w-full overflow-hidden rounded-2xl bg-subtle">
                 {covers[folder.id] ? (
                   // eslint-disable-next-line @next/next/no-img-element

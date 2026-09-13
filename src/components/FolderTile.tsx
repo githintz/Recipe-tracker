@@ -10,7 +10,7 @@ export function FolderTile({
   cover: Recipe | undefined;
 }) {
   return (
-    <Link href={`/folders/${folder.id}`} className="pressable block w-[120px] shrink-0">
+    <Link href={`/folder/?id=${folder.id}`} className="pressable block w-[120px] shrink-0">
       <div className="aspect-square w-full overflow-hidden rounded-2xl bg-subtle">
         {cover?.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

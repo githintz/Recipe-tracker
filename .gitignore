@@ -1,11 +1,18 @@
 node_modules/
 .next/
 out/
-data/*.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
 .env
 .env.local
 *.tsbuildinfo
 next-env.d.ts
+
+# Android build output — the project itself is committed, the artefacts aren't.
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/release/
+android/capacitor-cordova-android-plugins/build/
+*.apk
+*.aab
+*.keystore

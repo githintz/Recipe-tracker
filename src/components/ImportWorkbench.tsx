@@ -1,9 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { ExtractedRecipe, Folder } from "@/lib/types";
 import { RecipeEditor } from "./RecipeEditor";
 import { emptyRecipeDraft } from "@/lib/draft";
+import {
+  ImportError,
+  MissingKeyError,
+  NotARecipeError,
+  importFromImage,
+  importFromText,
+  importFromUrl,
+  isLlmAvailable,
+} from "@/lib/extract";
 
 type Mode = "url" | "text" | "photo" | "write";
 
@@ -54,19 +64,26 @@ const MODES: { id: Mode; label: string; hint: string; icon: React.ReactNode }[] 
 
 type Props = {
   folders: Folder[];
-  aiEnabled: boolean;
   initialUrl: string;
   initialText: string;
   initialMode: Mode;
 };
 
+type Source =
+  | { kind: "url"; url: string }
+  | { kind: "text"; text: string }
+  | { kind: "image"; base64: string; mediaType: string };
+
 export function ImportWorkbench({
   folders,
-  aiEnabled,
   initialUrl,
   initialText,
   initialMode,
 }: Props) {
+  // Read once on mount: localStorage isn't available while rendering on the
+  // server during the static export.
+  const [aiEnabled, setAiEnabled] = useState(false);
+  useEffect(() => setAiEnabled(isLlmAvailable()), []);
   const [mode, setMode] = useState<Mode | null>(initialUrl || initialText ? initialMode : null);
   const [url, setUrl] = useState(initialUrl);
   const [text, setText] = useState(initialText);
@@ -76,28 +93,22 @@ export function ImportWorkbench({
   const fileInput = useRef<HTMLInputElement>(null);
   const autoRan = useRef(false);
 
-  async function runImport(body: Record<string, unknown>) {
+  async function runImport(source: Source) {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch("/api/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = (await response.json()) as {
-        recipe?: ExtractedRecipe;
-        error?: string;
-        hint?: string;
-      };
-
-      if (!response.ok || !data.recipe) {
-        setError({ message: data.error ?? "That import didn't work.", hint: data.hint });
-        return;
-      }
-      setDraft(data.recipe);
-    } catch {
-      setError({ message: "Couldn't reach the server. Check your connection." });
+      const recipe =
+        source.kind === "url"
+          ? await importFromUrl(source.url)
+          : source.kind === "text"
+            ? await importFromText(source.text)
+            : await importFromImage(
+                source.base64,
+                source.mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+              );
+      setDraft(recipe);
+    } catch (thrown) {
+      setError(describe(thrown));
     } finally {
       setBusy(false);
     }
@@ -108,10 +119,10 @@ export function ImportWorkbench({
     if (autoRan.current) return;
     if (initialUrl.trim()) {
       autoRan.current = true;
-      void runImport({ mode: "url", url: initialUrl });
+      void runImport({ kind: "url", url: initialUrl });
     } else if (initialText.trim()) {
       autoRan.current = true;
-      void runImport({ mode: "text", text: initialText });
+      void runImport({ kind: "text", text: initialText });
     }
     // Only ever fires for the values present on first render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,7 +149,7 @@ export function ImportWorkbench({
       return;
     }
 
-    await runImport({ mode: "image", image: base64, mediaType: file.type });
+    await runImport({ kind: "image", base64, mediaType: file.type });
   }
 
   if (busy) {
@@ -255,7 +266,7 @@ export function ImportWorkbench({
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && url.trim()) void runImport({ mode: "url", url });
+              if (e.key === "Enter" && url.trim()) void runImport({ kind: "url", url });
             }}
             type="url"
             inputMode="url"
@@ -266,7 +277,7 @@ export function ImportWorkbench({
             className="w-full rounded-2xl px-4 py-3.5 text-[15px] outline-none"
             style={{ background: "var(--subtle)" }}
           />
-          <PrimaryButton disabled={!url.trim()} onClick={() => runImport({ mode: "url", url })}>
+          <PrimaryButton disabled={!url.trim()} onClick={() => runImport({ kind: "url", url })}>
             Import recipe
           </PrimaryButton>
         </section>
@@ -286,7 +297,7 @@ export function ImportWorkbench({
           />
           <PrimaryButton
             disabled={text.trim().length < 20}
-            onClick={() => runImport({ mode: "text", text })}
+            onClick={() => runImport({ kind: "text", text })}
           >
             Import recipe
           </PrimaryButton>
@@ -330,9 +341,11 @@ export function ImportWorkbench({
               className="rounded-2xl p-3.5 text-[12.5px] leading-relaxed text-muted"
               style={{ background: "var(--accent-soft)" }}
             >
-              Reading a photo needs an Anthropic API key. Set{" "}
-              <code className="font-mono">ANTHROPIC_API_KEY</code> and restart, or
-              write the recipe in by hand.
+              Reading a photo needs a Claude API key.{" "}
+              <Link href="/settings" className="font-bold text-accent underline">
+                Add one in Settings
+              </Link>
+              , or write the recipe in by hand.
             </p>
           )}
         </section>
@@ -396,11 +409,36 @@ function NoKeyNote() {
     >
       Running without an API key. Recipe sites that publish structured data import
       perfectly; social captions and free-form blogs fall back to a built-in parser
-      that handles the common shapes but not every one. Set{" "}
-      <code className="font-mono">ANTHROPIC_API_KEY</code> for the rest, including
-      photo scanning.
+      that handles the common shapes but not every one.{" "}
+      <Link href="/settings" className="font-bold text-accent underline">
+        Add a Claude API key
+      </Link>{" "}
+      for the rest, including photo scanning.
     </p>
   );
+}
+
+/** Turns whatever the pipeline threw into something worth reading. */
+function describe(thrown: unknown): { message: string; hint?: string } {
+  if (thrown instanceof MissingKeyError) {
+    return {
+      message: "No Claude API key is set.",
+      hint: "Add one in Settings, or use a source that writes the recipe out in full.",
+    };
+  }
+  if (thrown instanceof NotARecipeError) {
+    return {
+      message: thrown.message,
+      hint: "Try a post where the recipe is written out in the caption.",
+    };
+  }
+  if (thrown instanceof ImportError) {
+    return { message: thrown.message, hint: thrown.hint };
+  }
+  if (thrown instanceof Error) {
+    return { message: "Something went wrong reading that recipe.", hint: thrown.message };
+  }
+  return { message: "Something went wrong reading that recipe." };
 }
 
 function sourceLabel(recipe: ExtractedRecipe): string {

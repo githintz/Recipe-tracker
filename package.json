@@ -6,15 +6,17 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx scripts/seed.mjs",
     "smoke": "node scripts/smoke.mjs",
+    "sync:android": "npm run build && cap sync android",
+    "apk": "npm run sync:android && cd android && ./gradlew assembleDebug",
     "verify": "npm run typecheck && npm run lint && npm run build && npm run smoke"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/core": "^7.6.9",
     "better-sqlite3": "^11.10.0",
     "next": "^15.5.25",
     "react": "19.1.1",
@@ -22,6 +24,7 @@
     "zod": "^4.6.4"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.9",
     "@eslint/eslintrc": "^3.3.7",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/better-sqlite3": "^7.6.13",
@@ -32,6 +35,6 @@
     "eslint-config-next": "^15.5.25",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
-    "tsx": "^4.20.3"
+    "playwright": "^1.56.0"
   }
 }

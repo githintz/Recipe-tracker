@@ -4,11 +4,17 @@ import { fromJsonLd } from "./jsonld";
 import { fromMicrodata } from "./microdata";
 import { fromText } from "./heuristic";
 import { detectPlatform, fetchSocialPost, platformLabel } from "./social";
-import { extractFromImage, extractWithLlm, isLlmAvailable, NotARecipeError } from "./llm";
+import {
+  extractFromImage,
+  extractWithLlm,
+  isLlmAvailable,
+  MissingKeyError,
+  NotARecipeError,
+} from "./llm";
 import { htmlToText, metaContent, pageTitle } from "./html";
 import { estimateNutrition } from "../nutrition";
 
-export { NotARecipeError };
+export { NotARecipeError, MissingKeyError };
 export { isLlmAvailable };
 
 export class ImportError extends Error {
@@ -119,8 +125,8 @@ async function importWebPage(html: string, url: string): Promise<ExtractedRecipe
     throw new ImportError(
       `No recipe was found on ${hostLabel(url)}.`,
       isLlmAvailable()
-        ? "The page may load its recipe with JavaScript. Copy the recipe text and use Paste text instead."
-        : "Set ANTHROPIC_API_KEY to read pages without structured data, or use Paste text.",
+        ? "The page may build its recipe with JavaScript. Copy the recipe text and use Paste text instead."
+        : "Add a Claude API key in Settings to read pages that publish no structured data, or use Paste text.",
     );
   }
 
@@ -183,7 +189,7 @@ async function importSocialPost(
       ...parsed.warnings,
       ...(isLlmAvailable()
         ? []
-        : ["Parsed without AI — set ANTHROPIC_API_KEY for cleaner caption imports."]),
+        : ["Parsed without AI — add a Claude API key in Settings for cleaner caption imports."]),
     ],
   };
 }
@@ -226,8 +232,8 @@ export async function importFromImage(
 ): Promise<ExtractedRecipe> {
   if (!isLlmAvailable()) {
     throw new ImportError(
-      "Reading a photo needs an Anthropic API key.",
-      "Set ANTHROPIC_API_KEY, or type the recipe in by hand.",
+      "Reading a photo needs a Claude API key.",
+      "Add one in Settings, or type the recipe in by hand.",
     );
   }
   return finish(await extractFromImage(base64, mediaType));

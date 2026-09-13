@@ -15,7 +15,7 @@ export function RecipeCard({ recipe }: { recipe: Recipe }) {
   const credit = creditFor(recipe);
 
   return (
-    <Link href={`/recipes/${recipe.id}`} className="pressable group block">
+    <Link href={`/recipe/?id=${recipe.id}`} className="pressable group block">
       <div className="relative">
         <div className="aspect-square w-full overflow-hidden rounded-2xl bg-subtle">
           {recipe.imageUrl ? (
@@ -66,7 +66,7 @@ export function RecipeRow({ recipe }: { recipe: Recipe }) {
   const minutes = recipe.totalMinutes ?? recipe.cookMinutes ?? recipe.prepMinutes;
 
   return (
-    <Link href={`/recipes/${recipe.id}`} className="pressable flex items-center gap-3 py-2.5">
+    <Link href={`/recipe/?id=${recipe.id}`} className="pressable flex items-center gap-3 py-2.5">
       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-subtle">
         {recipe.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -94,7 +94,7 @@ export function RecipeRow({ recipe }: { recipe: Recipe }) {
 /** The small tile used in horizontal scroll strips. */
 export function RecipeChip({ recipe }: { recipe: Recipe }) {
   return (
-    <Link href={`/recipes/${recipe.id}`} className="pressable block w-[104px] shrink-0">
+    <Link href={`/recipe/?id=${recipe.id}`} className="pressable block w-[104px] shrink-0">
       <div className="aspect-square w-full overflow-hidden rounded-xl bg-subtle">
         {recipe.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

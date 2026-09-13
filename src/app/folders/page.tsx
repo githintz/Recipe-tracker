@@ -1,24 +1,39 @@
-import { listFolders, listRecipes } from "@/lib/db";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import type { Folder } from "@/lib/types";
+import { listFolders, listRecipes } from "@/lib/store";
 import { FolderBoard } from "@/components/FolderBoard";
+import { Spinner } from "@/components/Spinner";
 
-export const dynamic = "force-dynamic";
+export default function FoldersPage() {
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [covers, setCovers] = useState<Record<string, string | null>>({});
+  const [loading, setLoading] = useState(true);
 
-export const metadata = { title: "Folders — Ladle" };
+  const load = useCallback(async () => {
+    const [folderList, recipes] = await Promise.all([listFolders(), listRecipes()]);
+    setFolders(folderList);
+    setCovers(
+      Object.fromEntries(
+        folderList.map((folder) => [
+          folder.id,
+          recipes.find((recipe) => recipe.folderIds?.includes(folder.id))?.imageUrl ?? null,
+        ]),
+      ),
+    );
+    setLoading(false);
+  }, []);
 
-export default async function FoldersPage() {
-  const folders = listFolders();
-  const recipes = listRecipes();
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const covers = Object.fromEntries(
-    folders.map((folder) => [
-      folder.id,
-      recipes.find((recipe) => recipe.folderIds?.includes(folder.id))?.imageUrl ?? null,
-    ]),
-  );
+  if (loading) return <main><Spinner /></main>;
 
   return (
     <main>
-      <FolderBoard folders={folders} covers={covers} />
+      <FolderBoard folders={folders} covers={covers} onChanged={load} />
     </main>
   );
 }

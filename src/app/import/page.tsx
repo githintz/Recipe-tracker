@@ -1,21 +1,47 @@
+"use client";
+
 import Link from "next/link";
-import { listFolders } from "@/lib/db";
-import { isLlmAvailable } from "@/lib/extract";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import type { Folder } from "@/lib/types";
+import { listFolders } from "@/lib/store";
 import { ImportWorkbench } from "@/components/ImportWorkbench";
+import { Spinner } from "@/components/Spinner";
 
-export const dynamic = "force-dynamic";
+function ImportScreen() {
+  const params = useSearchParams();
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [ready, setReady] = useState(false);
 
-export const metadata = { title: "Add a recipe — Ladle" };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const list = await listFolders();
+      if (cancelled) return;
+      setFolders(list);
+      setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-type SearchParams = Promise<{ url?: string; text?: string; mode?: string }>;
+  if (!ready) return <Spinner />;
 
-export default async function ImportPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const params = await searchParams;
+  const url = params.get("url") ?? "";
+  const text = params.get("text") ?? "";
 
+  return (
+    <ImportWorkbench
+      folders={folders}
+      initialUrl={url}
+      initialText={text}
+      initialMode={params.get("mode") === "text" && text ? "text" : "url"}
+    />
+  );
+}
+
+export default function ImportPage() {
   return (
     <main>
       <header className="mb-5 flex items-center gap-3">
@@ -31,14 +57,9 @@ export default async function ImportPage({
         </Link>
         <h1 className="font-display text-[25px] font-extrabold">Add a recipe</h1>
       </header>
-
-      <ImportWorkbench
-        folders={listFolders()}
-        aiEnabled={isLlmAvailable()}
-        initialUrl={params.url ?? ""}
-        initialText={params.text ?? ""}
-        initialMode={params.mode === "text" && params.text ? "text" : "url"}
-      />
+      <Suspense fallback={<Spinner />}>
+        <ImportScreen />
+      </Suspense>
     </main>
   );
 }

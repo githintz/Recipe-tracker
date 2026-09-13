@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Folder, Recipe } from "@/lib/types";
+import { deleteFolder, setRecipeFolders, updateFolder } from "@/lib/store";
 import { RecipeRow } from "./RecipeCard";
 import { EmptyState } from "./EmptyState";
 
@@ -11,10 +12,13 @@ export function FolderDetail({
   folder,
   recipes,
   available,
+  onChanged,
 }: {
   folder: Folder;
   recipes: Recipe[];
   available: Recipe[];
+  /** Re-reads the folder after a change, so the screen stays in step. */
+  onChanged: () => void | Promise<void>;
 }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -25,43 +29,31 @@ export function FolderDetail({
   const cover = recipes.find((recipe) => recipe.imageUrl)?.imageUrl ?? null;
 
   async function addRecipe(recipe: Recipe) {
-    const folderIds = [...(recipe.folderIds ?? []), folder.id];
-    await fetch(`/api/recipes/${recipe.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ folderIds }),
-    });
-    router.refresh();
+    await setRecipeFolders(recipe.id, [...(recipe.folderIds ?? []), folder.id]);
+    await onChanged();
   }
 
   async function removeRecipe(recipe: Recipe) {
-    const folderIds = (recipe.folderIds ?? []).filter((id) => id !== folder.id);
-    await fetch(`/api/recipes/${recipe.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ folderIds }),
-    });
-    router.refresh();
+    await setRecipeFolders(
+      recipe.id,
+      (recipe.folderIds ?? []).filter((id) => id !== folder.id),
+    );
+    await onChanged();
   }
 
   async function rename() {
     if (!name.trim()) return;
-    await fetch(`/api/folders/${folder.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
+    await updateFolder(folder.id, { name });
     setRenaming(false);
-    router.refresh();
+    await onChanged();
   }
 
   async function remove() {
     if (!confirm(`Delete the folder “${folder.name}”? The recipes inside stay in your box.`)) {
       return;
     }
-    await fetch(`/api/folders/${folder.id}`, { method: "DELETE" });
+    await deleteFolder(folder.id);
     router.push("/folders");
-    router.refresh();
   }
 
   return (

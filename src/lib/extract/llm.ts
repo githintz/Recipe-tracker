@@ -3,6 +3,7 @@ import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { ExtractedRecipe, Ingredient, Step } from "../types";
 import { parseIngredientLine } from "../quantity";
+import { getApiKey } from "../settings";
 
 const MODEL = "claude-opus-5";
 
@@ -70,15 +71,27 @@ Rules that matter:
 - Ingredient "item" is what you would buy, with no amount and no prep: "2 cloves garlic, minced" gives item "garlic", note "minced".
 - If the text is not a recipe, set is_recipe false and leave the other fields empty.`;
 
-let client: Anthropic | null = null;
-
 export function isLlmAvailable(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  return getApiKey() !== null;
 }
 
+/**
+ * Built fresh each call so a key added in Settings takes effect immediately.
+ * `dangerouslyAllowBrowser` is the honest name for what this is: the request
+ * carries the user's own key straight from their device to Anthropic, with no
+ * server of ours in between.
+ */
 function getClient(): Anthropic {
-  if (!client) client = new Anthropic();
-  return client;
+  const apiKey = getApiKey();
+  if (!apiKey) throw new MissingKeyError();
+  return new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+}
+
+export class MissingKeyError extends Error {
+  constructor() {
+    super("No Claude API key is set.");
+    this.name = "MissingKeyError";
+  }
 }
 
 type ParsedRecipe = z.infer<typeof RecipeSchema>;

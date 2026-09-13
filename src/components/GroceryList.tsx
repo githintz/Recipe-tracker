@@ -5,6 +5,12 @@ import { useMemo, useState } from "react";
 import type { GroceryItem, Recipe } from "@/lib/types";
 import { AISLES, aisleOrder } from "@/lib/aisle";
 import { formatQuantity, formatUnit } from "@/lib/quantity";
+import {
+  addGroceryLine,
+  clearGroceryItems,
+  deleteGroceryItem,
+  setGroceryChecked,
+} from "@/lib/store";
 import { RecipeChip } from "./RecipeCard";
 import { EmptyState } from "./EmptyState";
 
@@ -41,29 +47,28 @@ export function GroceryList({
     setItems((current) =>
       current.map((entry) => (entry.id === item.id ? { ...entry, checked: next } : entry)),
     );
-    await fetch(`/api/grocery/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ checked: next }),
-    });
+    await setGroceryChecked(item.id, next);
   }
 
   async function remove(item: GroceryItem) {
     setItems((current) => current.filter((entry) => entry.id !== item.id));
-    await fetch(`/api/grocery/${item.id}`, { method: "DELETE" });
+    await deleteGroceryItem(item.id);
   }
 
   async function add() {
     const text = draft.trim();
     if (!text) return;
     setAdding(true);
-    const response = await fetch("/api/grocery", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+    const saved = await addGroceryLine(text);
+    // An added line may merge into one already there, so replace by id rather
+    // than always appending.
+    setItems((current) => {
+      const existing = current.findIndex((entry) => entry.id === saved.id);
+      if (existing === -1) return [...current, saved];
+      const next = [...current];
+      next[existing] = saved;
+      return next;
     });
-    const data = (await response.json()) as { item?: GroceryItem };
-    if (data.item) setItems((current) => [...current, data.item!]);
     setDraft("");
     setAdding(false);
   }
@@ -71,7 +76,7 @@ export function GroceryList({
   async function clear(scope: "checked" | "all") {
     if (scope === "all" && !confirm("Clear the whole list?")) return;
     setItems((current) => (scope === "all" ? [] : current.filter((item) => !item.checked)));
-    await fetch(`/api/grocery?scope=${scope}`, { method: "DELETE" });
+    await clearGroceryItems(scope === "checked");
     setMenuOpen(false);
   }
 

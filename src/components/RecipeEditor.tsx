@@ -9,6 +9,7 @@ import {
   textToIngredients,
   textToSteps,
 } from "@/lib/serialize";
+import { createRecipe, updateRecipe } from "@/lib/store";
 
 type Props = {
   /** The recipe being edited — freshly extracted, or an existing saved one. */
@@ -78,26 +79,24 @@ export function RecipeEditor({ initial, folders, recipeId, onCancel }: Props) {
     };
 
     try {
-      const response = await fetch(
-        recipeId ? `/api/recipes/${recipeId}` : "/api/recipes",
-        {
-          method: recipeId ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
+      const saved = recipeId
+        ? await updateRecipe(recipeId, payload)
+        : await createRecipe(payload);
 
-      const data = (await response.json()) as { recipe?: Recipe; error?: string };
-      if (!response.ok || !data.recipe) {
-        setError(data.error ?? "Couldn't save that recipe.");
+      if (!saved) {
+        setError("That recipe no longer exists.");
         setSaving(false);
         return;
       }
 
-      router.push(`/recipes/${data.recipe.id}`);
+      router.push(`/recipe/?id=${saved.id}`);
       router.refresh();
-    } catch {
-      setError("Couldn't reach the server. Try again.");
+    } catch (thrown) {
+      setError(
+        thrown instanceof Error
+          ? `Couldn't save it: ${thrown.message}`
+          : "Couldn't save that recipe.",
+      );
       setSaving(false);
     }
   }

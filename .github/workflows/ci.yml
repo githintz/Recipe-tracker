@@ -6,35 +6,24 @@ on:
   pull_request:
   workflow_dispatch:
 
-# A new push to the same branch makes the in-flight run irrelevant.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Typecheck, lint, build and run
+  web:
+    name: Typecheck, lint, build and drive the app
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    strategy:
-      fail-fast: false
-      matrix:
-        # The lower bound is what Next 15 requires; the upper is current.
-        node-version: ["20.x", "22.x"]
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22.x
           cache: npm
 
-      # better-sqlite3 ships prebuilt binaries; `npm ci` falls back to
-      # compiling from source if none match, which needs no extra packages on
-      # ubuntu-latest.
       - name: Install dependencies
         run: npm ci
 
@@ -44,20 +33,80 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Build
+      - name: Build the web bundle
         run: npm run build
 
-      # Boots the built app against a throwaway database and exercises the
-      # pages, the import parser, recipe CRUD, folders and grocery merging.
-      # No API key: the offline parsers have to carry this on their own.
-      - name: Run the app and smoke test it
+      - name: Install a browser for the smoke test
+        run: npx playwright install --with-deps chromium
+
+      # Drives the exported app the way the WebView does: saves a recipe to
+      # on-device storage, reads it back after a reload, and builds a grocery
+      # list from it.
+      - name: Drive the app
         run: npm run smoke
 
-      - name: Upload build log on failure
+  apk:
+    name: Build the Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Exports the UI to out/, then copies it into the Android project.
+      - name: Build the web bundle and sync it into Android
+        run: npm run sync:android
+
+      - name: Build the APK
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Name the APK after the commit
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             "dist/ladle-${GITHUB_SHA::7}.apk"
+          ls -lh dist/
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ladle-apk
+          path: dist/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload Gradle reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: next-build-${{ matrix.node-version }}
-          path: .next/
-          retention-days: 3
+          name: gradle-reports
+          path: android/app/build/reports/
+          retention-days: 5
           if-no-files-found: ignore

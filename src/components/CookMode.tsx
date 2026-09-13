@@ -68,7 +68,7 @@ export function CookMode({ recipe }: { recipe: Recipe }) {
     function onKey(event: KeyboardEvent) {
       if (event.key === "ArrowRight" || event.key === " ") next();
       if (event.key === "ArrowLeft") previous();
-      if (event.key === "Escape") router.push(`/recipes/${recipe.id}`);
+      if (event.key === "Escape") router.push(`/recipe/?id=${recipe.id}`);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -87,7 +87,7 @@ export function CookMode({ recipe }: { recipe: Recipe }) {
       <header className="flex items-center gap-3 px-4 pt-4 pb-2">
         <button
           type="button"
-          onClick={() => router.push(`/recipes/${recipe.id}`)}
+          onClick={() => router.push(`/recipe/?id=${recipe.id}`)}
           aria-label="Leave cook mode"
           className="pressable flex h-10 w-10 items-center justify-center rounded-full bg-subtle"
         >
@@ -147,7 +147,7 @@ export function CookMode({ recipe }: { recipe: Recipe }) {
         </button>
         <button
           type="button"
-          onClick={() => (isLast ? router.push(`/recipes/${recipe.id}`) : next())}
+          onClick={() => (isLast ? router.push(`/recipe/?id=${recipe.id}`) : next())}
           className="pressable flex-1 rounded-full px-6 py-4 font-bold text-white"
           style={{ background: "var(--accent)" }}
         >

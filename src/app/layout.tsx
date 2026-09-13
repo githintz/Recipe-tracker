@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { TabBar } from "@/components/TabBar";
+import { ShareListener } from "@/components/ShareListener";
 
 export const metadata: Metadata = {
   title: "Ladle — your recipe box",
@@ -25,6 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-dvh">
+        <Suspense fallback={null}>
+          <ShareListener />
+        </Suspense>
         <div className="mx-auto w-full max-w-3xl px-4 pt-4 pb-28 sm:px-6">{children}</div>
         <TabBar />
       </body>

@@ -1,44 +1,70 @@
+"use client";
+
 import Link from "next/link";
-import { allTags, listFolders, listRecipes } from "@/lib/db";
+import { useEffect, useState } from "react";
+import type { Folder, Recipe } from "@/lib/types";
+import { allTags, listFolders, listRecipes } from "@/lib/store";
 import { RecipeCard } from "@/components/RecipeCard";
 import { FolderTile } from "@/components/FolderTile";
 import { EmptyState } from "@/components/EmptyState";
 import { PastePrompt } from "@/components/PastePrompt";
-import { SearchField } from "@/components/SearchField";
 import { Wordmark } from "@/components/Wordmark";
 import { Fab } from "@/components/Fab";
+import { Spinner } from "@/components/Spinner";
 
-export const dynamic = "force-dynamic";
+type Sort = "recent" | "title" | "time";
 
-type SearchParams = Promise<{
-  q?: string;
-  tag?: string;
-  favorites?: string;
-  sort?: string;
-}>;
+export default function RecipeBoxPage() {
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [everything, setEverything] = useState<Recipe[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function RecipeBoxPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const params = await searchParams;
-  const favoritesOnly = params.favorites === "1";
-  const sort = (params.sort as "recent" | "title" | "time") ?? "recent";
-  const filtering = Boolean(params.q || params.tag || favoritesOnly);
+  const [search, setSearch] = useState("");
+  const [tag, setTag] = useState<string | null>(null);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sort, setSort] = useState<Sort>("recent");
 
-  const recipes = listRecipes({
-    search: params.q,
-    tag: params.tag,
-    favoritesOnly,
-    sort,
-  });
+  const filtering = Boolean(search.trim() || tag || favoritesOnly);
 
-  const everything = listRecipes();
-  const folders = listFolders();
-  const tags = allTags();
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [all, folderList, tagList] = await Promise.all([
+        listRecipes(),
+        listFolders(),
+        allTags(),
+      ]);
+      if (cancelled) return;
+      setEverything(all);
+      setFolders(folderList);
+      setTags(tagList);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  /** A folder's cover is the newest recipe inside it. */
+  // Re-query whenever a filter changes. Searching a personal recipe box is
+  // instant, so there's no need to debounce the store itself.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const results = await listRecipes({
+        search,
+        tag: tag ?? undefined,
+        favoritesOnly,
+        sort,
+      });
+      if (!cancelled) setRecipes(results);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [search, tag, favoritesOnly, sort, everything]);
+
   const coverFor = (folderId: string) =>
     everything.find((recipe) => recipe.folderIds?.includes(folderId));
 
@@ -46,60 +72,63 @@ export default async function RecipeBoxPage({
     <main>
       <header className="mb-4 flex items-center justify-between">
         <Wordmark />
-        <div className="flex items-center gap-1">
-          <Link
-            href="/folders"
-            aria-label="Folders"
-            className="pressable flex h-10 w-10 items-center justify-center rounded-full"
-          >
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            </svg>
-          </Link>
-          <Link
-            href="/grocery"
-            aria-label="Grocery list"
-            className="pressable relative flex h-10 w-10 items-center justify-center rounded-full"
-          >
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M8 6h13M8 12h13M8 18h13" />
-              <path d="m3.4 6 .9 1L6 5M3.4 12l.9 1L6 11M3.4 18l.9 1L6 17" />
-            </svg>
-          </Link>
-        </div>
+        {/* Folders and the list already have tabs, so the header carries settings. */}
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          className="pressable flex h-10 w-10 items-center justify-center rounded-full"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="12" cy="12" r="3.1" />
+            <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" />
+          </svg>
+        </Link>
       </header>
 
-      <SearchField
-        defaultValue={params.q ?? ""}
-        hidden={{
-          tag: params.tag,
-          favorites: favoritesOnly ? "1" : undefined,
-          sort: params.sort,
-        }}
-      />
+      <div className="relative">
+        <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+        </span>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search recipes and ingredients"
+          aria-label="Search recipes"
+          className="w-full rounded-2xl py-3 pr-4 pl-10 text-[15px] outline-none placeholder:text-muted"
+          style={{ background: "var(--subtle)" }}
+        />
+      </div>
 
       <div className="mt-3">
         <PastePrompt />
       </div>
 
-      {(tags.length > 0 || everything.length > 0) && (
+      {everything.length > 0 && (
         <div className="scroll-row mb-6 flex gap-2 overflow-x-auto text-[13.5px]">
-          <Chip href={buildHref(params, { favorites: null, tag: null, q: null })} active={!filtering}>
+          <Chip
+            active={!filtering}
+            onClick={() => {
+              setSearch("");
+              setTag(null);
+              setFavoritesOnly(false);
+            }}
+          >
             All
           </Chip>
-          <Chip
-            href={buildHref(params, { favorites: favoritesOnly ? null : "1" })}
-            active={favoritesOnly}
-          >
+          <Chip active={favoritesOnly} onClick={() => setFavoritesOnly((v) => !v)}>
             ★ Favourites
           </Chip>
-          {tags.slice(0, 12).map(({ tag, count }) => (
+          {tags.slice(0, 12).map(({ tag: name, count }) => (
             <Chip
-              key={tag}
-              href={buildHref(params, { tag: params.tag === tag ? null : tag })}
-              active={params.tag === tag}
+              key={name}
+              active={tag === name}
+              onClick={() => setTag((current) => (current === name ? null : name))}
             >
-              {tag} <span className="opacity-55">{count}</span>
+              {name} <span className="opacity-55">{count}</span>
             </Chip>
           ))}
         </div>
@@ -124,27 +153,28 @@ export default async function RecipeBoxPage({
           <h2 className="section-title">
             {filtering ? "Results" : "Recipes"}
             {recipes.length > 0 && (
-              <span className="ml-2 text-[15px] font-semibold text-muted">
-                {recipes.length}
-              </span>
+              <span className="ml-2 text-[15px] font-semibold text-muted">{recipes.length}</span>
             )}
           </h2>
           {recipes.length > 1 && (
             <div className="flex gap-3 text-[13px] text-muted">
-              <SortLink params={params} value="recent" current={sort}>
-                Recent
-              </SortLink>
-              <SortLink params={params} value="title" current={sort}>
-                A–Z
-              </SortLink>
-              <SortLink params={params} value="time" current={sort}>
-                Quickest
-              </SortLink>
+              {(["recent", "title", "time"] as Sort[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setSort(value)}
+                  className={sort === value ? "font-bold text-accent" : ""}
+                >
+                  {value === "recent" ? "Recent" : value === "title" ? "A–Z" : "Quickest"}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-        {recipes.length === 0 ? (
+        {loading ? (
+          <Spinner label="Opening your recipe box…" />
+        ) : recipes.length === 0 ? (
           everything.length === 0 ? (
             <EmptyState
               emoji="🥄"
@@ -158,8 +188,6 @@ export default async function RecipeBoxPage({
               emoji="🔍"
               title="Nothing matched"
               body="Try a different search, or clear the filters to see everything you've saved."
-              actionHref="/"
-              actionLabel="Clear filters"
             />
           )
         ) : (
@@ -185,61 +213,26 @@ function Chevron() {
 }
 
 function Chip({
-  href,
   active,
+  onClick,
   children,
 }: {
-  href: string;
   active: boolean;
+  onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <Link
-      href={href}
-      className={`shrink-0 rounded-full px-3.5 py-1.5 font-medium whitespace-nowrap ${
-        active ? "bg-ink text-[var(--card)]" : "bg-subtle text-muted"
-      }`}
-      style={active ? { background: "var(--ink)", color: "var(--card)" } : undefined}
+    <button
+      type="button"
+      onClick={onClick}
+      className="shrink-0 rounded-full px-3.5 py-1.5 font-medium whitespace-nowrap"
+      style={
+        active
+          ? { background: "var(--ink)", color: "var(--card)" }
+          : { background: "var(--subtle)", color: "var(--muted)" }
+      }
     >
       {children}
-    </Link>
+    </button>
   );
-}
-
-function SortLink({
-  params,
-  value,
-  current,
-  children,
-}: {
-  params: Record<string, string | undefined>;
-  value: string;
-  current: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={buildHref(params, { sort: value })}
-      className={current === value ? "font-bold text-accent" : ""}
-    >
-      {children}
-    </Link>
-  );
-}
-
-/** Keeps the current filters while changing one of them. */
-function buildHref(
-  params: Record<string, string | undefined>,
-  changes: Record<string, string | null>,
-): string {
-  const next = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value) next.set(key, value);
-  }
-  for (const [key, value] of Object.entries(changes)) {
-    if (value === null) next.delete(key);
-    else next.set(key, value);
-  }
-  const query = next.toString();
-  return query ? `/?${query}` : "/";
 }
