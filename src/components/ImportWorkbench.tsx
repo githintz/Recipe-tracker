@@ -7,11 +7,49 @@ import { emptyRecipeDraft } from "@/lib/draft";
 
 type Mode = "url" | "text" | "photo" | "write";
 
-const MODES: { id: Mode; label: string; icon: string }[] = [
-  { id: "url", label: "Link", icon: "🔗" },
-  { id: "text", label: "Text", icon: "¶" },
-  { id: "photo", label: "Photo", icon: "📷" },
-  { id: "write", label: "Write", icon: "✎" },
+const MODES: { id: Mode; label: string; hint: string; icon: React.ReactNode }[] = [
+  {
+    id: "url",
+    label: "Paste a link",
+    hint: "Instagram, TikTok, YouTube or any recipe site",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+        <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+      </svg>
+    ),
+  },
+  {
+    id: "text",
+    label: "Paste text",
+    hint: "A caption, an email, a note from a friend",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M5 5h14M5 10h14M5 15h9M5 20h6" />
+      </svg>
+    ),
+  },
+  {
+    id: "photo",
+    label: "Scan a photo",
+    hint: "A cookbook page, a recipe card, a screenshot",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M3 8V6a2 2 0 0 1 2-2h2M17 4h2a2 2 0 0 1 2 2v2M21 16v2a2 2 0 0 1-2 2h-2M7 20H5a2 2 0 0 1-2-2v-2" />
+        <circle cx="12" cy="12" r="3.2" />
+      </svg>
+    ),
+  },
+  {
+    id: "write",
+    label: "Write it yourself",
+    hint: "Family recipes, and the ones in your head",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
+      </svg>
+    ),
+  },
 ];
 
 type Props = {
@@ -29,7 +67,7 @@ export function ImportWorkbench({
   initialText,
   initialMode,
 }: Props) {
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const [mode, setMode] = useState<Mode | null>(initialUrl || initialText ? initialMode : null);
   const [url, setUrl] = useState(initialUrl);
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
@@ -65,7 +103,7 @@ export function ImportWorkbench({
     }
   }
 
-  // A link arriving from the share sheet should import without a second tap.
+  // A link arriving from the share sheet imports without a second tap.
   useEffect(() => {
     if (autoRan.current) return;
     if (initialUrl.trim()) {
@@ -85,15 +123,15 @@ export function ImportWorkbench({
       return;
     }
 
-    const base64 = await new Promise<string>((resolve, reject) => {
+    const base64 = await new Promise<string | null>((resolve) => {
       const reader = new FileReader();
       reader.onload = () => {
         const result = String(reader.result);
         resolve(result.slice(result.indexOf(",") + 1));
       };
-      reader.onerror = () => reject(new Error("read failed"));
+      reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
-    }).catch(() => null);
+    });
 
     if (!base64) {
       setError({ message: "Couldn't read that image." });
@@ -103,50 +141,113 @@ export function ImportWorkbench({
     await runImport({ mode: "image", image: base64, mediaType: file.type });
   }
 
-  if (draft) {
+  if (busy) {
     return (
-      <div>
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-line bg-card px-3 py-2.5 text-sm">
-          <span className="text-muted">
-            Read from <strong className="text-ink">{sourceLabel(draft)}</strong>
-          </span>
-          <button
-            type="button"
-            onClick={() => setDraft(null)}
-            className="font-medium text-accent"
-          >
-            Start over
-          </button>
-        </div>
-        <RecipeEditor initial={draft} folders={folders} onCancel={() => setDraft(null)} />
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <span
+          className="h-10 w-10 animate-spin rounded-full border-[3px]"
+          style={{ borderColor: "var(--subtle)", borderTopColor: "var(--accent)" }}
+          aria-hidden
+        />
+        <p className="font-display mt-5 text-[17px] font-extrabold">Reading the recipe…</p>
+        <p className="mt-1 text-[13.5px] text-muted">This usually takes a few seconds.</p>
       </div>
     );
   }
 
-  return (
-    <div>
-      <div className="mb-4 grid grid-cols-4 gap-1.5">
-        {MODES.map((option) => (
+  if (draft) {
+    return (
+      <div>
+        <div
+          className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3 text-[13.5px]"
+          style={{ background: "var(--accent-soft)" }}
+        >
+          <span className="text-muted">
+            Read from <strong className="font-bold text-ink">{sourceLabel(draft)}</strong>
+          </span>
           <button
-            key={option.id}
             type="button"
             onClick={() => {
-              setMode(option.id);
-              setError(null);
+              setDraft(null);
+              setMode(null);
             }}
-            className={`rounded-xl border px-2 py-2.5 text-sm ${
-              mode === option.id
-                ? "border-accent bg-accent-soft font-medium text-accent"
-                : "border-line bg-card text-muted"
-            }`}
+            className="font-bold text-accent"
           >
-            <span className="block text-base" aria-hidden>
-              {option.icon}
-            </span>
-            {option.label}
+            Start over
           </button>
-        ))}
+        </div>
+        <RecipeEditor
+          initial={draft}
+          folders={folders}
+          onCancel={() => {
+            setDraft(null);
+            setMode(null);
+          }}
+        />
       </div>
+    );
+  }
+
+  if (mode === null) {
+    return (
+      <div>
+        <div className="space-y-2.5">
+          {MODES.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => {
+                setMode(option.id);
+                setError(null);
+              }}
+              className="pressable flex w-full items-center gap-3.5 rounded-2xl bg-card p-4 text-left shadow-card"
+            >
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+              >
+                {option.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="font-display block text-[15.5px] font-extrabold">
+                  {option.label}
+                </span>
+                <span className="mt-0.5 block text-[13px] text-muted">{option.hint}</span>
+              </span>
+              <span className="text-muted" aria-hidden>
+                ›
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-5 px-1 text-[12.5px] leading-relaxed text-muted">
+          Recipes only come through when the creator wrote them down. A method
+          that&apos;s only spoken aloud in a video isn&apos;t in the page to read —
+          for those, copy the caption or the comments.
+        </p>
+
+        {!aiEnabled && <NoKeyNote />}
+      </div>
+    );
+  }
+
+  const active = MODES.find((option) => option.id === mode)!;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          setMode(null);
+          setError(null);
+        }}
+        className="mb-4 text-[13.5px] font-bold text-accent"
+      >
+        ‹ All the ways to add
+      </button>
+
+      <h2 className="font-display mb-3 text-[19px] font-extrabold">{active.label}</h2>
 
       {mode === "url" && (
         <section className="space-y-3">
@@ -159,23 +260,15 @@ export function ImportWorkbench({
             type="url"
             inputMode="url"
             autoCapitalize="none"
+            autoFocus
             placeholder="https://instagram.com/reel/…"
             aria-label="Recipe link"
-            className="w-full rounded-xl border border-line bg-card px-3 py-3 text-sm outline-none focus:border-accent"
+            className="w-full rounded-2xl px-4 py-3.5 text-[15px] outline-none"
+            style={{ background: "var(--subtle)" }}
           />
-          <button
-            type="button"
-            disabled={busy || !url.trim()}
-            onClick={() => void runImport({ mode: "url", url })}
-            className="w-full rounded-full bg-accent px-5 py-3 font-medium text-white disabled:opacity-50"
-          >
-            {busy ? "Reading the page…" : "Import recipe"}
-          </button>
-          <p className="text-xs text-muted">
-            Works with Instagram, TikTok, YouTube and any recipe site. Recipes only
-            come through if the creator wrote them down — a method that is only
-            spoken in a video isn&apos;t in the page to read.
-          </p>
+          <PrimaryButton disabled={!url.trim()} onClick={() => runImport({ mode: "url", url })}>
+            Import recipe
+          </PrimaryButton>
         </section>
       )}
 
@@ -185,22 +278,18 @@ export function ImportWorkbench({
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={12}
-            placeholder={"Paste a caption, an email, or a note from a friend…"}
+            autoFocus
+            placeholder="Paste the caption, ingredients and method…"
             aria-label="Recipe text"
-            className="w-full rounded-xl border border-line bg-card px-3 py-3 text-sm leading-relaxed outline-none focus:border-accent"
+            className="w-full rounded-2xl px-4 py-3.5 text-[15px] leading-relaxed outline-none"
+            style={{ background: "var(--subtle)" }}
           />
-          <button
-            type="button"
-            disabled={busy || text.trim().length < 20}
-            onClick={() => void runImport({ mode: "text", text })}
-            className="w-full rounded-full bg-accent px-5 py-3 font-medium text-white disabled:opacity-50"
+          <PrimaryButton
+            disabled={text.trim().length < 20}
+            onClick={() => runImport({ mode: "text", text })}
           >
-            {busy ? "Reading it…" : "Import recipe"}
-          </button>
-          <p className="text-xs text-muted">
-            The most reliable route when a link won&apos;t open — copy the caption
-            straight out of the app and drop it here.
-          </p>
+            Import recipe
+          </PrimaryButton>
         </section>
       )}
 
@@ -220,52 +309,97 @@ export function ImportWorkbench({
           />
           <button
             type="button"
-            disabled={busy || !aiEnabled}
+            disabled={!aiEnabled}
             onClick={() => fileInput.current?.click()}
-            className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-line bg-card px-6 py-12 disabled:opacity-50"
+            className="pressable relative flex w-full flex-col items-center gap-2 rounded-3xl px-6 py-16 disabled:opacity-50"
+            style={{ background: "var(--subtle)" }}
           >
+            <ScanCorners />
             <span className="text-3xl" aria-hidden>
               📷
             </span>
-            <span className="font-medium">
-              {busy ? "Reading the page…" : "Take or choose a photo"}
+            <span className="font-display text-[15.5px] font-extrabold">
+              Take or choose a photo
             </span>
-            <span className="text-xs text-muted">
+            <span className="text-[12.5px] text-muted">
               A cookbook page, a recipe card, a screenshot
             </span>
           </button>
           {!aiEnabled && (
-            <p className="rounded-xl border border-line bg-accent-soft p-3 text-xs text-muted">
+            <p
+              className="rounded-2xl p-3.5 text-[12.5px] leading-relaxed text-muted"
+              style={{ background: "var(--accent-soft)" }}
+            >
               Reading a photo needs an Anthropic API key. Set{" "}
               <code className="font-mono">ANTHROPIC_API_KEY</code> and restart, or
-              type the recipe in under <strong>Write</strong>.
+              write the recipe in by hand.
             </p>
           )}
         </section>
       )}
 
-      {mode === "write" && (
-        <section>
-          <RecipeEditor initial={emptyRecipeDraft()} folders={folders} />
-        </section>
-      )}
+      {mode === "write" && <RecipeEditor initial={emptyRecipeDraft()} folders={folders} />}
 
       {error && (
-        <div className="mt-4 rounded-xl border border-accent bg-accent-soft p-3 text-sm">
-          <p className="font-medium text-accent">{error.message}</p>
-          {error.hint && <p className="mt-1 text-muted">{error.hint}</p>}
+        <div
+          className="mt-4 rounded-2xl p-3.5 text-[14px]"
+          style={{ background: "var(--accent-soft)" }}
+        >
+          <p className="font-bold text-accent">{error.message}</p>
+          {error.hint && <p className="mt-1 leading-relaxed text-muted">{error.hint}</p>}
         </div>
       )}
-
-      {!aiEnabled && mode !== "photo" && (
-        <p className="mt-6 rounded-xl border border-line bg-card p-3 text-xs text-muted">
-          Running without an API key. Recipe sites with structured data import
-          perfectly; social captions and free-form blogs fall back to a built-in
-          parser that gets the common shapes right but not every one. Set{" "}
-          <code className="font-mono">ANTHROPIC_API_KEY</code> for the rest.
-        </p>
-      )}
     </div>
+  );
+}
+
+/** The white corner brackets of a scan viewfinder. */
+function ScanCorners() {
+  const common = "absolute h-8 w-8 border-accent";
+  return (
+    <span aria-hidden>
+      <span className={`${common} top-4 left-4 rounded-tl-xl border-t-[3px] border-l-[3px]`} />
+      <span className={`${common} top-4 right-4 rounded-tr-xl border-t-[3px] border-r-[3px]`} />
+      <span className={`${common} bottom-4 left-4 rounded-bl-xl border-b-[3px] border-l-[3px]`} />
+      <span className={`${common} right-4 bottom-4 rounded-br-xl border-r-[3px] border-b-[3px]`} />
+    </span>
+  );
+}
+
+function PrimaryButton({
+  disabled,
+  onClick,
+  children,
+}: {
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="pressable w-full rounded-full py-3.5 text-[15px] font-bold text-white disabled:opacity-40"
+      style={{ background: "var(--accent)" }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function NoKeyNote() {
+  return (
+    <p
+      className="mt-4 rounded-2xl p-3.5 text-[12.5px] leading-relaxed text-muted"
+      style={{ background: "var(--subtle)" }}
+    >
+      Running without an API key. Recipe sites that publish structured data import
+      perfectly; social captions and free-form blogs fall back to a built-in parser
+      that handles the common shapes but not every one. Set{" "}
+      <code className="font-mono">ANTHROPIC_API_KEY</code> for the rest, including
+      photo scanning.
+    </p>
   );
 }
 

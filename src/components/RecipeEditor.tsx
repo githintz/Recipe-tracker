@@ -105,9 +105,12 @@ export function RecipeEditor({ initial, folders, recipeId, onCancel }: Props) {
   return (
     <div className="space-y-5">
       {warnings.length > 0 && (
-        <div className="rounded-xl border border-line bg-accent-soft p-3 text-sm">
-          <p className="font-medium text-accent">Worth a look before you save</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted">
+        <div
+          className="rounded-2xl p-3.5 text-[14px]"
+          style={{ background: "var(--accent-soft)" }}
+        >
+          <p className="font-bold text-accent">Worth a look before you save</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 leading-relaxed text-muted">
             {warnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
@@ -238,11 +241,12 @@ export function RecipeEditor({ initial, folders, recipeId, onCancel }: Props) {
                         : [...current, folder.id],
                     )
                   }
-                  className={`rounded-full border px-3 py-1.5 text-sm ${
+                  className="rounded-full px-3.5 py-2 text-[14px] font-medium"
+                  style={
                     active
-                      ? "border-accent bg-accent text-white"
-                      : "border-line bg-card text-muted"
-                  }`}
+                      ? { background: "var(--accent)", color: "#fff" }
+                      : { background: "var(--subtle)", color: "var(--muted)" }
+                  }
                 >
                   {folder.emoji} {folder.name}
                 </button>
@@ -253,17 +257,21 @@ export function RecipeEditor({ initial, folders, recipeId, onCancel }: Props) {
       )}
 
       {error && (
-        <p className="rounded-xl border border-accent bg-accent-soft p-3 text-sm text-accent">
+        <p
+          className="rounded-2xl p-3.5 text-[14px] font-bold text-accent"
+          style={{ background: "var(--accent-soft)" }}
+        >
           {error}
         </p>
       )}
 
-      <div className="sticky bottom-20 flex gap-2 pt-2">
+      <div className="sticky bottom-4 flex gap-2 pt-2">
         <button
           type="button"
           onClick={save}
           disabled={saving}
-          className="flex-1 rounded-full bg-accent px-5 py-3 font-medium text-white disabled:opacity-60"
+          className="pressable flex-1 rounded-full px-5 py-3.5 font-bold text-white disabled:opacity-50"
+          style={{ background: "var(--accent)" }}
         >
           {saving ? "Saving…" : recipeId ? "Save changes" : "Save to recipe box"}
         </button>
@@ -271,7 +279,8 @@ export function RecipeEditor({ initial, folders, recipeId, onCancel }: Props) {
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-full border border-line bg-card px-5 py-3 font-medium"
+            className="pressable rounded-full px-5 py-3.5 font-bold"
+            style={{ background: "var(--subtle)" }}
           >
             Cancel
           </button>
@@ -282,7 +291,7 @@ export function RecipeEditor({ initial, folders, recipeId, onCancel }: Props) {
 }
 
 const inputClass =
-  "w-full rounded-xl border border-line bg-card px-3 py-2.5 text-sm outline-none focus:border-accent";
+  "w-full rounded-2xl px-3.5 py-3 text-[15px] outline-none bg-[var(--subtle)]";
 
 function Field({
   label,
@@ -296,8 +305,8 @@ function Field({
   return (
     <label className="block">
       <span className="mb-1.5 flex items-baseline justify-between">
-        <span className="text-sm font-medium">{label}</span>
-        {hint && <span className="text-xs text-muted">{hint}</span>}
+        <span className="text-[14px] font-bold">{label}</span>
+        {hint && <span className="text-[12px] text-muted">{hint}</span>}
       </span>
       {children}
     </label>

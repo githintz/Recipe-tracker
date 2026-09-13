@@ -150,9 +150,27 @@ export function formatQuantity(value: number | null): string {
   return String(Math.round(value * 100) / 100);
 }
 
-/** Pluralises a unit for display, leaving weights and volumes alone. */
+/**
+ * How each unit is written on screen. Measures that a recipe would abbreviate
+ * stay abbreviated ("115 g", "2 tbsp"); the ones it would spell out are
+ * pluralised instead ("2 cups", "3 cloves").
+ */
+const SHORT_UNITS: Record<string, string> = {
+  gram: "g",
+  kilogram: "kg",
+  milliliter: "ml",
+  liter: "L",
+  ounce: "oz",
+  "fluid ounce": "fl oz",
+  pound: "lb",
+  tablespoon: "tbsp",
+  teaspoon: "tsp",
+  inch: "in",
+};
+
 export function formatUnit(unit: string | null, quantity: number | null): string {
   if (!unit) return "";
+  if (unit in SHORT_UNITS) return SHORT_UNITS[unit];
   if (INVARIANT_UNITS.has(unit)) return unit;
   if (quantity !== null && quantity > 1) {
     if (unit.endsWith("h") || unit.endsWith("s")) return `${unit}es`;

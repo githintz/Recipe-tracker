@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { GroceryItem, Recipe } from "@/lib/types";
 import { AISLES, aisleOrder } from "@/lib/aisle";
+import { formatQuantity, formatUnit } from "@/lib/quantity";
 import { RecipeChip } from "./RecipeCard";
 import { EmptyState } from "./EmptyState";
 
@@ -265,7 +266,7 @@ export function GroceryList({
             );
           })}
 
-          <p className="px-1 pt-1 text-[13px] text-muted">
+          <p className="px-1 pt-1 pb-20 text-[13px] text-muted">
             {remaining === 0
               ? "Everything ticked off."
               : `${remaining} left to buy · ${items.length - remaining} in the trolley`}
@@ -302,12 +303,21 @@ export function GroceryList({
 }
 
 function ItemText({ item }: { item: GroceryItem }) {
-  // The amount reads as the bold part, the food as plain text.
-  const amount = item.text.replace(item.item, "").trim();
+  // The amount reads as the bold part, the food as plain text. Rebuild the
+  // amount from the stored numbers rather than subtracting strings — "lemon"
+  // is a substring of "3 lemons", and cutting it out leaves nonsense.
+  const amount = [formatQuantity(item.quantity), formatUnit(item.unit, item.quantity)]
+    .filter(Boolean)
+    .join(" ");
+
+  const rest = amount && item.text.startsWith(amount)
+    ? item.text.slice(amount.length).trim()
+    : item.item;
+
   return (
     <>
       {amount && <strong className="font-bold">{amount} </strong>}
-      {item.item}
+      {rest}
     </>
   );
 }

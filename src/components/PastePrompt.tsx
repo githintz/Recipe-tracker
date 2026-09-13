@@ -6,11 +6,10 @@ import { useEffect, useRef, useState } from "react";
 /**
  * The fastest path from "I just copied a link" to a saved recipe.
  *
- * Browsers only hand over the clipboard on a user gesture (and only over
- * HTTPS), so this can't quietly peek the way a native app does. Instead it
+ * Browsers only hand over the clipboard on a user gesture, and only over
+ * HTTPS, so this can't quietly peek the way a native app does. Instead it
  * offers one tap that reads the clipboard, and falls back to a real paste
- * field whenever the read is blocked or comes back with something that isn't
- * a link — which is also what happens on Firefox, where reading is disabled.
+ * field whenever the read is blocked or returns something that isn't a link.
  */
 export function PastePrompt() {
   const router = useRouter();
@@ -59,8 +58,11 @@ export function PastePrompt() {
 
   if (state === "manual") {
     return (
-      <div className="mb-4 rounded-2xl bg-card p-3 shadow-card">
-        <div className="flex gap-2">
+      <div className="mb-4">
+        <div
+          className="flex gap-2 rounded-2xl p-1.5"
+          style={{ background: "var(--subtle)" }}
+        >
           <input
             ref={inputRef}
             value={value}
@@ -68,18 +70,19 @@ export function PastePrompt() {
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="Paste a link or a caption"
             aria-label="Paste a recipe link"
-            className="min-w-0 flex-1 rounded-xl bg-subtle px-3 py-2.5 text-sm outline-none"
+            className="min-w-0 flex-1 bg-transparent px-3 py-2 text-[15px] outline-none"
           />
           <button
             type="button"
             onClick={submit}
             disabled={!value.trim()}
-            className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-xl px-4 py-2 text-[14px] font-bold text-white disabled:opacity-40"
+            style={{ background: "var(--accent)" }}
           >
             Go
           </button>
         </div>
-        {note && <p className="mt-2 px-1 text-xs text-muted">{note}</p>}
+        {note && <p className="mt-2 px-1 text-[12.5px] text-muted">{note}</p>}
       </div>
     );
   }
@@ -88,10 +91,12 @@ export function PastePrompt() {
     <button
       type="button"
       onClick={readClipboard}
-      className="pressable mb-4 flex w-full items-center gap-3 rounded-2xl bg-card p-3 text-left shadow-card"
+      className="pressable mb-4 flex w-full items-center gap-3 rounded-2xl p-3 text-left"
+      style={{ background: "var(--accent-soft)" }}
     >
       <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white"
+        style={{ background: "var(--accent)" }}
         aria-hidden
       >
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -100,14 +105,14 @@ export function PastePrompt() {
         </svg>
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold">
+        <span className="font-display block text-[14.5px] font-extrabold">
           {state === "reading" ? "Checking your clipboard…" : "Paste a recipe link"}
         </span>
-        <span className="block truncate text-xs text-muted">
+        <span className="block truncate text-[12.5px] text-muted">
           Copy from Instagram, TikTok or any site, then tap here
         </span>
       </span>
-      <span className="text-muted" aria-hidden>
+      <span className="text-accent" aria-hidden>
         ›
       </span>
     </button>

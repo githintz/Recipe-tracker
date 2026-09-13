@@ -93,7 +93,7 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
   const totalTime = recipe.totalMinutes ?? recipe.cookMinutes ?? recipe.prepMinutes;
 
   return (
-    <div className="-mt-4">
+    <div className={`-mt-4 ${recipe.steps.length > 0 ? "pb-24" : ""}`}>
       {/* Hero */}
       <div className="relative">
         <div className="aspect-[4/3] w-full overflow-hidden rounded-b-3xl bg-subtle sm:rounded-3xl">

@@ -416,6 +416,23 @@ type GroceryRow = {
   created_at: string;
 };
 
+/**
+ * The key two grocery lines must share to be merged. Folds case, trims, and
+ * knocks a simple plural off the end so "2 lemons" lands on "1 lemon" rather
+ * than sitting next to it on the list.
+ */
+function groceryKey(item: string): string {
+  const text = item.trim().toLowerCase().replace(/\s+/g, " ");
+  const last = text.split(" ").pop() ?? "";
+
+  // "glass" and "couscous" are not plurals; "tomatoes" and "lemons" are.
+  if (/(?:ss|us|is)$/.test(last)) return text;
+  if (/ies$/.test(last)) return text.replace(/ies$/, "y");
+  if (/(?:ch|sh|x|z|s)es$/.test(last)) return text.replace(/es$/, "");
+  if (/[^s]s$/.test(last)) return text.replace(/s$/, "");
+  return text;
+}
+
 function toGroceryItem(row: GroceryRow): GroceryItem {
   return {
     id: row.id,
@@ -476,7 +493,30 @@ function insertGroceryItem(input: {
 }
 
 export function addGroceryLine(text: string): GroceryItem {
+  const db = connect();
   const ingredient = parseIngredientLine(text);
+  const key = groceryKey(ingredient.item);
+
+  // Typing something already on the list tops up that line instead of
+  // creating a duplicate.
+  const match = listGroceryItems().find(
+    (candidate) =>
+      !candidate.checked &&
+      groceryKey(candidate.item) === key &&
+      candidate.unit === ingredient.unit,
+  );
+
+  if (match && match.quantity !== null && ingredient.quantity !== null) {
+    const total = match.quantity + ingredient.quantity;
+    const merged = formatIngredient({ ...ingredient, quantity: total });
+    db.prepare("UPDATE grocery_items SET quantity = ?, text = ? WHERE id = ?").run(
+      total,
+      merged,
+      match.id,
+    );
+    return { ...match, quantity: total, text: merged };
+  }
+
   return insertGroceryItem({
     text: text.trim(),
     quantity: ingredient.quantity,
@@ -502,12 +542,12 @@ export function addRecipeToGroceryList(
     for (const ingredient of recipe.ingredients) {
       const scaled =
         ingredient.quantity === null ? null : ingredient.quantity * factor;
-      const key = ingredient.item.trim().toLowerCase();
+      const key = groceryKey(ingredient.item);
 
       const match = existing.find(
         (candidate) =>
           !candidate.checked &&
-          candidate.item.trim().toLowerCase() === key &&
+          groceryKey(candidate.item) === key &&
           candidate.unit === ingredient.unit,
       );
 
