@@ -57,6 +57,17 @@ body {
 }
 
 @layer utilities {
+  /* Clears the status bar / notch. Resolves to 0 when the host already
+     inset the WebView, so it never double-pads. */
+  .pt-safe {
+    padding-top: calc(1rem + env(safe-area-inset-top));
+  }
+  .pt-safe-sm {
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+  }
+}
+
+@layer utilities {
   .font-display {
     font-family: var(--font-display);
     letter-spacing: -0.03em;

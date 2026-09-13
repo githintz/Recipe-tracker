@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Suspense fallback={null}>
           <ShareListener />
         </Suspense>
-        <div className="mx-auto w-full max-w-3xl px-4 pt-4 pb-28 sm:px-6">{children}</div>
+        <div className="pt-safe mx-auto w-full max-w-3xl px-4 pb-28 sm:px-6">{children}</div>
         <TabBar />
       </body>
     </html>

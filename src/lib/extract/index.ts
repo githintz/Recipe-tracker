@@ -22,6 +22,8 @@ export class ImportError extends Error {
     message: string,
     /** Shown under the error so the user knows what to try instead. */
     readonly hint?: string,
+    /** What each attempt actually returned — surfaced behind "Show details". */
+    readonly details?: string[],
   ) {
     super(message);
     this.name = "ImportError";
@@ -73,21 +75,22 @@ export async function importFromUrl(rawUrl: string): Promise<ExtractedRecipe> {
 
   const platform = detectPlatform(url);
 
-  let html: string;
+  // Social platforms need several attempts under different user agents, so
+  // they fetch inside their own importer rather than being handed one page.
+  if (platform !== "web") return finish(await importSocialPost(url, platform));
+
+  let page;
   try {
-    html = await fetchPage(url);
+    page = await fetchPage(url);
   } catch (error) {
     const detail = error instanceof FetchError ? error.message : "Could not open that link.";
     throw new ImportError(
       `Couldn't open ${hostLabel(url) || "that link"}. ${detail}`,
-      platform === "instagram" || platform === "tiktok"
-        ? "Private or age-restricted posts can't be read. Copy the caption and use Paste text instead."
-        : "Check the link, or copy the recipe text and use Paste text instead.",
+      "Check the link, or copy the recipe text and use Paste text instead.",
     );
   }
 
-  if (platform === "web") return finish(await importWebPage(html, url));
-  return finish(await importSocialPost(html, url, platform));
+  return finish(await importWebPage(page.html, url));
 }
 
 async function importWebPage(html: string, url: string): Promise<ExtractedRecipe> {
@@ -134,16 +137,17 @@ async function importWebPage(html: string, url: string): Promise<ExtractedRecipe
 }
 
 async function importSocialPost(
-  html: string,
   url: string,
   platform: ReturnType<typeof detectPlatform>,
 ): Promise<ExtractedRecipe> {
-  const post = await fetchSocialPost(url, html, platform);
+  const post = await fetchSocialPost(url, platform);
 
   if (!post.caption) {
     throw new ImportError(
       `${platformLabel(platform)} didn't give up a caption for that post.`,
-      "The post may be private, or the recipe may only be spoken in the video. Copy the caption and use Paste text instead.",
+      "Sign-in walls are the usual cause, and private or age-restricted posts " +
+        "can't be read at all. Copying the caption and using Paste text always works.",
+      post.diagnostics,
     );
   }
 

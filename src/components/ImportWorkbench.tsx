@@ -88,7 +88,8 @@ export function ImportWorkbench({
   const [url, setUrl] = useState(initialUrl);
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ message: string; hint?: string } | null>(null);
+  const [error, setError] = useState<ImportFailure | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const [draft, setDraft] = useState<ExtractedRecipe | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const autoRan = useRef(false);
@@ -96,6 +97,7 @@ export function ImportWorkbench({
   async function runImport(source: Source) {
     setBusy(true);
     setError(null);
+    setShowDetails(false);
     try {
       const recipe =
         source.kind === "url"
@@ -360,6 +362,47 @@ export function ImportWorkbench({
         >
           <p className="font-bold text-accent">{error.message}</p>
           {error.hint && <p className="mt-1 leading-relaxed text-muted">{error.hint}</p>}
+
+          {error.details && error.details.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowDetails((open) => !open)}
+                className="mt-2.5 text-[13px] font-bold text-accent underline"
+              >
+                {showDetails ? "Hide details" : "Show details"}
+              </button>
+
+              {showDetails && (
+                <>
+                  <ul className="mt-2 space-y-1">
+                    {error.details.map((line, index) => (
+                      <li
+                        key={index}
+                        className="rounded-lg px-2.5 py-1.5 font-mono text-[11.5px] leading-relaxed text-muted"
+                        style={{ background: "var(--card)" }}
+                      >
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard
+                        ?.writeText(
+                          [error.message, ...(error.details ?? [])].join("\n"),
+                        )
+                        .catch(() => {});
+                    }}
+                    className="mt-2 text-[13px] font-bold text-accent underline"
+                  >
+                    Copy details
+                  </button>
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -418,8 +461,10 @@ function NoKeyNote() {
   );
 }
 
+type ImportFailure = { message: string; hint?: string; details?: string[] };
+
 /** Turns whatever the pipeline threw into something worth reading. */
-function describe(thrown: unknown): { message: string; hint?: string } {
+function describe(thrown: unknown): ImportFailure {
   if (thrown instanceof MissingKeyError) {
     return {
       message: "No Claude API key is set.",
@@ -433,7 +478,7 @@ function describe(thrown: unknown): { message: string; hint?: string } {
     };
   }
   if (thrown instanceof ImportError) {
-    return { message: thrown.message, hint: thrown.hint };
+    return { message: thrown.message, hint: thrown.hint, details: thrown.details };
   }
   if (thrown instanceof Error) {
     return { message: "Something went wrong reading that recipe.", hint: thrown.message };

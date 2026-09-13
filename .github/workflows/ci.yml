@@ -33,6 +33,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Pins the caption pipeline against the shapes social platforms return.
+      # The network is stubbed, so these run the same everywhere.
+      - name: Test the parsers
+        run: npm test
+
       - name: Build the web bundle
         run: npm run build
 

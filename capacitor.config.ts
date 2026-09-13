@@ -5,6 +5,15 @@ const config: CapacitorConfig = {
   appName: "Ladle",
   // Next exports the whole UI here; the APK ships these files inside itself.
   webDir: "out",
+  android: {
+    /**
+     * Without this the WebView is laid out edge to edge and the app draws
+     * under the status bar, so the header collides with the clock and signal
+     * icons. Capacitor's default here is "disable"; forcing it adds the
+     * margins on every Android version rather than only on 15+.
+     */
+    adjustMarginsForEdgeToEdge: "force",
+  },
   server: {
     // Serving the WebView over https keeps it a secure context, which
     // crypto.randomUUID and IndexedDB both expect.

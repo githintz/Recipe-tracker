@@ -84,7 +84,7 @@ export function CookMode({ recipe }: { recipe: Recipe }) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-paper">
-      <header className="flex items-center gap-3 px-4 pt-4 pb-2">
+      <header className="pt-safe flex items-center gap-3 px-4 pb-2">
         <button
           type="button"
           onClick={() => router.push(`/recipe/?id=${recipe.id}`)}
