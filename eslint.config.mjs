@@ -8,7 +8,15 @@ const compat = new FlatCompat({
 
 const config = [
   {
-    ignores: [".next/**", "node_modules/**", "data/**", "next-env.d.ts"],
+    // Everything generated: the Next build, the static export, and the copy of
+    // that export Capacitor places inside the Android project.
+    ignores: [
+      ".next/**",
+      "out/**",
+      "android/**",
+      "node_modules/**",
+      "next-env.d.ts",
+    ],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
